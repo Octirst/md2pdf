@@ -1,6 +1,6 @@
 # md2pdf — Markdown 到 PDF 转换脚本（接近 MPE 预览风格）
 
-一个简单、实用的 Markdown→PDF 转换脚本，支持 Playwright 与 WeasyPrint 两种引擎，尽可能贴近 Trae 插件 “Markdown Preview Enhanced” 的预览效果。
+一个简单、实用的 Markdown→PDF 转换脚本，支持 Playwright 与 WeasyPrint 两种引擎，尽可能贴近 VSCode 插件 “Markdown Preview Enhanced” 的预览效果。
 
 ## 特性
 
