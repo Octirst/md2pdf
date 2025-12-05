@@ -72,4 +72,4 @@ md2pdf input.md --debug-html
 
 ## 许可
 
-你可以根据需要添加许可证文件（如 MIT）。
+ MIT
