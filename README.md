@@ -30,7 +30,11 @@ export PATH="$HOME/.local/bin:$PATH"
 # 基本用法
 md2pdf input.md
 
-# 指定输出文件
+# 批量转换
+md2pdf *.md
+md2pdf a.md b.md
+
+# 指定输出文件（仅限单个输入文件）
 md2pdf input.md -o out.pdf
 
 # 指定引擎与主题

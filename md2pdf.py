@@ -332,8 +332,8 @@ def main():
             env["MD2PDF_VENV_ACTIVE"] = "1"
             os.execve(str(venv_python), [str(venv_python), str(Path(__file__).resolve())] + sys.argv[1:], env)
     parser = argparse.ArgumentParser(prog="md2pdf", description="Convert Markdown to PDF with browser or WeasyPrint backends")
-    parser.add_argument("input", help="Input Markdown file")
-    parser.add_argument("-o", "--output", help="Output PDF file")
+    parser.add_argument("input", nargs="+", help="Input Markdown file(s)")
+    parser.add_argument("-o", "--output", help="Output PDF file (only for single input file)")
     parser.add_argument("--title", help="Document title", default="Document")
     parser.add_argument("--css", help="Additional CSS file")
     parser.add_argument("--engine", choices=["auto", "playwright", "weasyprint"], default="auto", help="Render engine")
@@ -346,17 +346,7 @@ def main():
     parser.add_argument("--debug-html", action="store_true", help="Output intermediate HTML next to PDF")
     args = parser.parse_args()
 
-    in_path = Path(args.input).resolve()
-    if not in_path.exists():
-        print(f"[ERROR] Input not found: {in_path}", file=sys.stderr)
-        sys.exit(1)
-
-    out_path = Path(args.output).resolve() if args.output else in_path.with_suffix(".pdf")
-    out_dir = out_path.parent
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    base_url = in_path.parent.as_uri()
-
+    # Resolve CSS once
     css_text = ""
     if args.css:
         css_path = Path(args.css).resolve()
@@ -365,27 +355,57 @@ def main():
             sys.exit(1)
         css_text = read_text(css_path)
 
-    parts = []
+    # Resolve Cover once
+    cover_part = ""
     if args.cover:
         cover_path = Path(args.cover).resolve()
         if not cover_path.exists():
             print(f"[ERROR] Cover not found: {cover_path}", file=sys.stderr)
             sys.exit(1)
-        parts.append(read_text(cover_path) + "\n\n<div class=\"page-break\"></div>\n\n")
-    parts.append(read_text(in_path))
-    md_text = "\n\n".join(parts)
-    md_text = fix_nested_lists(md_text)
+        cover_part = read_text(cover_path) + "\n\n<div class=\"page-break\"></div>\n\n"
 
-    html = build_html(md_text, args.title, css_text, base_url, args.math, not args.no_mermaid, args.theme)
-
+    # Select renderer once
     renderer = select_renderer(args.engine)
     if isinstance(renderer, WeasyPrintRenderer) and (args.math != "none" or not args.no_mermaid):
         print("[WARN] Using WeasyPrint: JavaScript-based features (Mermaid/MathJax/KaTeX) will not render.", file=sys.stderr)
 
-    if args.debug_html:
-        out_path.with_suffix(".html").write_text(html, encoding="utf-8")
-    renderer.render(html, out_path, base_url, args.page_size, args.margin)
-    print(f"[OK] PDF generated: {out_path}")
+    inputs = [Path(p).resolve() for p in args.input]
+    if len(inputs) > 1 and args.output:
+        print("[ERROR] The -o/--output argument is not supported when processing multiple files.", file=sys.stderr)
+        sys.exit(1)
+
+    for in_path in inputs:
+        if not in_path.exists():
+            print(f"[WARN] Input not found: {in_path}, skipping.", file=sys.stderr)
+            continue
+
+        if args.output:
+            out_path = Path(args.output).resolve()
+        else:
+            out_path = in_path.with_suffix(".pdf")
+
+        out_dir = out_path.parent
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        base_url = in_path.parent.as_uri()
+
+        parts = []
+        if cover_part:
+            parts.append(cover_part)
+        parts.append(read_text(in_path))
+        md_text = "\n\n".join(parts)
+        md_text = fix_nested_lists(md_text)
+
+        html = build_html(md_text, args.title, css_text, base_url, args.math, not args.no_mermaid, args.theme)
+
+        if args.debug_html:
+            out_path.with_suffix(".html").write_text(html, encoding="utf-8")
+
+        try:
+            renderer.render(html, out_path, base_url, args.page_size, args.margin)
+            print(f"[OK] PDF generated: {out_path}")
+        except Exception as e:
+            print(f"[ERROR] Failed to render {in_path}: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
